@@ -61,14 +61,13 @@ export function FieldEditor({ field, value, onChange, moduleKey }: Props) {
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
 function RefSelect({ field, value, onChange }: { field: Field; value: unknown; onChange: (v: unknown) => void }) {
-  const { tables } = useStore()
+  const { tables, labelFor } = useStore()
   const target = field.ref!
-  const rows = tables[target] ?? []
-  const titleKey = target === 'clients' ? 'full_name' : 'name'
+  const rows = (tables[target] ?? []).filter((r) => r.active !== false || r.id === value)
   return (
     <select id={`f-${field.key}`} value={str(value)} onChange={(e) => onChange(e.target.value)}>
       <option value="">—</option>
-      {rows.map((r) => <option key={r.id} value={r.id}>{String(r[titleKey] ?? '')}</option>)}
+      {rows.map((r) => <option key={r.id} value={r.id}>{labelFor(target, r.id)}</option>)}
     </select>
   )
 }

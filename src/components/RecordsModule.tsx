@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Field, Module, Row } from '../lib/modules'
 import { useStore } from '../lib/store'
 import { documentUrl } from '../lib/api'
+import { buildSignedPdf, downloadBytes } from '../lib/signing'
 import { Button, Empty, Icon, Modal, OptionPill, Pill, daysUntil, fmtDate, fmtMoney } from './ui'
 import { RecordForm } from './RecordForm'
 import { Markdown } from './Markdown'
+import { SendWaiverDialog } from './SendWaiverDialog'
 
 export function RecordsModule({ mod }: { mod: Module }) {
   const { tables, loading, labelFor } = useStore()
@@ -13,6 +16,19 @@ export function RecordsModule({ mod }: { mod: Module }) {
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [editing, setEditing] = useState<Row | null | 'new'>(null)
   const [preview, setPreview] = useState<Row | null>(null)
+  const [sending, setSending] = useState<Row | null>(null)
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null)
+
+  const downloadPdf = async (r: Row, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPdfBusy(r.id)
+    try {
+      const bytes = await buildSignedPdf(r, labelFor('clients', r.client_id))
+      downloadBytes(bytes, `${String(r.title).replace(/[^\w-]+/g, '_')}.pdf`)
+    } finally {
+      setPdfBusy(null)
+    }
+  }
 
   const filterFields = (mod.filters ?? []).map((k) => mod.fields.find((f) => f.key === k)!).filter(Boolean)
 
@@ -59,7 +75,11 @@ export function RecordsModule({ mod }: { mod: Module }) {
           <h1>{mod.label}</h1>
           <p className="blurb">{mod.blurb}</p>
         </div>
-        <Button variant="primary" icon="plus" onClick={() => setEditing('new')}>New {mod.singular.toLowerCase()}</Button>
+        <div className="head-actions">
+          {mod.key === 'waivers' && <Link to="/waiver_templates" className="btn btn-subtle"><Icon name="edit" size={16} /> Templates</Link>}
+          {mod.key === 'waiver_templates' && <Link to="/waivers" className="btn btn-subtle"><Icon name="chevron" size={16} /> Back to waivers</Link>}
+          <Button variant="primary" icon="plus" onClick={() => setEditing('new')}>New {mod.singular.toLowerCase()}</Button>
+        </div>
       </header>
 
       <div className="toolbar">
@@ -69,7 +89,7 @@ export function RecordsModule({ mod }: { mod: Module }) {
         </label>
         {filterFields.map((f) => (
           <select key={f.key} value={filters[f.key] ?? ''} onChange={(e) => setFilters((s) => ({ ...s, [f.key]: e.target.value }))} aria-label={f.label}>
-            <option value="">All {f.label.toLowerCase()}s</option>
+            <option value="">All {plural(f.label.toLowerCase())}</option>
             {f.type === 'ref'
               ? (tables[f.ref!] ?? []).map((r) => <option key={r.id} value={r.id}>{labelFor(f.ref!, r.id)}</option>)
               : f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -98,7 +118,19 @@ export function RecordsModule({ mod }: { mod: Module }) {
               {filtered.map((r) => (
                 <tr key={r.id} onClick={() => setEditing(r)} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(r) }}>
                   {listFields.map((f, i) => <td key={f.key} className={`${i === 0 ? 'title-cell' : ''} ${f.type === 'money' || f.type === 'number' ? 'num' : ''}`}>{cell(f, r)}</td>)}
-                  {hasFile && <td><FileLink path={r.file_path} /></td>}
+                  {hasFile && (
+                    <td>
+                      {mod.key === 'waivers' && r.signed_at ? (
+                        <button type="button" className="link-btn" disabled={pdfBusy === r.id} onClick={(e) => void downloadPdf(r, e)}>
+                          <Icon name="file-signature" size={14} /> {pdfBusy === r.id ? 'Building…' : 'Signed PDF'}
+                        </button>
+                      ) : mod.key === 'waivers' && !r.signed_at ? (
+                        <button type="button" className="link-btn" onClick={(e) => { e.stopPropagation(); setSending(r) }}>
+                          <Icon name="message" size={14} /> {r.sent_at ? 'Resend' : 'Send for signature'}
+                        </button>
+                      ) : <FileLink path={r.file_path} />}
+                    </td>
+                  )}
                   <td className="row-actions"><Icon name="chevron" size={16} /></td>
                 </tr>
               ))}
@@ -112,6 +144,7 @@ export function RecordsModule({ mod }: { mod: Module }) {
       )}
 
       {editing && <RecordForm mod={mod} row={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {sending && <SendWaiverDialog waiver={sending} onClose={() => setSending(null)} />}
       {preview && (
         <Modal title={String(preview[mod.titleKey])} onClose={() => setPreview(null)} wide
           footer={<><span className="spacer" /><Button icon="edit" onClick={() => { setEditing(preview); setPreview(null) }}>Edit</Button></>}>
@@ -120,7 +153,7 @@ export function RecordsModule({ mod }: { mod: Module }) {
             {typeof preview.offering_id === 'string' && preview.offering_id && <span className="muted">{labelFor('offerings', preview.offering_id)}</span>}
             {typeof preview.estimated_minutes === 'number' && <span className="muted">~{preview.estimated_minutes} min</span>}
           </div>
-          <Markdown source={String(preview.body ?? preview.description ?? '')} />
+          <Markdown source={String(preview.body ?? preview.description ?? preview.body_snapshot ?? '')} />
           {typeof preview.file_path === 'string' && preview.file_path && <p><FileLink path={preview.file_path} label="Open attached PDF" /></p>}
         </Modal>
       )}
@@ -195,6 +228,24 @@ function Card({ mod, row, onEdit, onPreview }: { mod: Module; row: Row; onEdit: 
     )
   }
 
+  if (mod.key === 'waiver_templates') {
+    return (
+      <article className={`card ${row.active === false ? 'inactive' : ''}`} onClick={onPreview}>
+        <header>
+          <OptionPill options={statusField?.options} value={row[mod.statusKey!]} />
+          {row.active === false && <Pill tone="neutral">Not in use</Pill>}
+          {row.requires_guardian_for_minors !== false && <span className="muted small">Guardian signs for minors</span>}
+        </header>
+        <h3>{String(row.name)}</h3>
+        <p className="excerpt">{excerpt(String(row.body ?? ''), 220)}</p>
+        <footer>
+          <span className="muted small">{typeof row.valid_days === 'number' ? `Valid ${row.valid_days} days after signing` : 'Never expires'}</span>
+          <Button icon="edit" onClick={(e) => { e.stopPropagation(); onEdit() }}>Edit</Button>
+        </footer>
+      </article>
+    )
+  }
+
   // offerings
   return (
     <article className={`card offering-card ${row.active === false ? 'inactive' : ''}`} onClick={onEdit}>
@@ -219,6 +270,7 @@ function Card({ mod, row, onEdit, onPreview }: { mod: Module; row: Row; onEdit: 
   )
 }
 
+const plural = (s: string) => (/(s|x|ch|sh)$/.test(s) ? s + 'es' : /[^aeiou]y$/.test(s) ? s.slice(0, -1) + 'ies' : s + 's')
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')
 const excerpt = (s: string, n = 180) => {
   const t = s.replace(/[#*_>`\-\[\]]+/g, ' ').replace(/\s+/g, ' ').trim()

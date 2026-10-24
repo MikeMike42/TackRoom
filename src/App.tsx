@@ -9,6 +9,7 @@ import { Login } from './components/Login'
 import { Setup } from './components/Setup'
 import { Dashboard } from './components/Dashboard'
 import { RecordsModule } from './components/RecordsModule'
+import { SignPage } from './components/SignPage'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -21,20 +22,31 @@ export default function App() {
   }, [])
 
   if (!isConfigured) return <Setup />
-  if (session === undefined) return <main className="auth"><p className="muted">Loading…</p></main>
-  if (!session) return <Login />
 
   return (
     <BrowserRouter>
-      <StoreProvider>
-        <Routes>
-          <Route element={<Shell session={session} />}>
-            <Route index element={<Dashboard />} />
-            {MODULES.map((m) => <Route key={m.key} path={m.key} element={<RecordsModule mod={m} />} />)}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </StoreProvider>
+      <Routes>
+        {/* Public: customers sign here without an account. */}
+        <Route path="/sign/:token" element={<SignPage />} />
+        {/* Everything else requires a staff login. */}
+        <Route path="/*" element={<StaffApp session={session} />} />
+      </Routes>
     </BrowserRouter>
+  )
+}
+
+function StaffApp({ session }: { session: Session | null | undefined }) {
+  if (session === undefined) return <main className="auth"><p className="muted">Loading…</p></main>
+  if (!session) return <Login />
+  return (
+    <StoreProvider>
+      <Routes>
+        <Route element={<Shell session={session} />}>
+          <Route index element={<Dashboard />} />
+          {MODULES.map((m) => <Route key={m.key} path={m.key} element={<RecordsModule mod={m} />} />)}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </StoreProvider>
   )
 }

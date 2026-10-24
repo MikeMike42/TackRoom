@@ -52,6 +52,29 @@ npm run dev
 4. Deploy. If the site loads with an "Almost there" screen, the variables aren't set for that build; add them and trigger a new deploy.
 5. Back in Supabase, **Authentication → URL Configuration**: set Site URL to your Netlify URL so password-reset links point at the live site.
 
+## E-signatures for waivers
+
+Replaces WaiverForever. Staff write **waiver templates** (Waivers → Templates), create a waiver for a rider, and click **Send for signature**. The rider gets an email with a private link to `/sign/<token>`, reads the text, types their name, draws a signature (plus a parent/guardian name and signature if under 18), ticks the e-sign consent, and submits. The waiver flips to **Signed** live, and **Signed PDF** on the waiver row builds a PDF with the exact text they agreed to, their signature image(s), and an audit block (sent/signed timestamps, consent sentence, device, document ID).
+
+Security: the signing page uses the public anon key but can only call two database functions keyed on a 64-character random token (single use, 14-day expiry). It cannot read any table. Signature PNGs go into a `signatures/<token>/` folder in the private bucket, write-only for anonymous users.
+
+### One-time setup
+
+1. **Database**: run `supabase/migrations/002_esign.sql` in the SQL Editor.
+2. **Email provider**: create a free account at [resend.com](https://resend.com) (3,000 emails/month). Add and verify your domain, or use `onboarding@resend.dev` as the sender while testing (it can only send to your own address). Copy an API key.
+3. **Deploy the Edge Function** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli), `npm i -g supabase`):
+   ```bash
+   supabase login
+   supabase link --project-ref <your-project-ref>
+   supabase secrets set RESEND_API_KEY=re_xxx \
+     FROM_EMAIL="Your Barn <waivers@yourdomain.com>" \
+     APP_URL=https://your-site.netlify.app \
+     BUSINESS_NAME="Your Barn"
+   supabase functions deploy send-waiver
+   ```
+   For local testing set `APP_URL=http://localhost:5173` first, then change it to the Netlify URL and redeploy once live.
+4. Write at least one template under **Waivers → Templates**, then create a waiver, pick the template, and send it to yourself to try the flow end to end.
+
 ## Security model
 
 - Only signed-in users can read or write anything (RLS policies on every table and on the storage bucket).

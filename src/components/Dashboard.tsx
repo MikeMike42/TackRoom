@@ -42,7 +42,7 @@ export function Dashboard() {
       </header>
 
       <div className="stat-row">
-        {MODULES.map((m) => (
+        {MODULES.filter((m) => !m.hidden).map((m) => (
           <Link key={m.key} to={`/${m.key}`} className="stat">
             <Icon name={m.icon} size={18} />
             <span className="stat-num">{tables[m.key]?.length ?? '–'}</span>

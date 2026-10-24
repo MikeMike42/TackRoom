@@ -351,3 +351,34 @@ textarea { resize: vertical; line-height: 1.5; }
 .auth-form .btn { margin-top: 10px; justify-content: center; }
 .setup pre { background: var(--surface-2); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; margin: 0; }
 .setup code { font-family: var(--font-mono); }
+
+/* ---------- Module header actions ---------- */
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+a.btn { text-decoration: none; }
+.readonly { padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.sent-ok { display: flex; flex-direction: column; gap: 10px; }
+.link-box { display: block; font-family: var(--font-mono); font-size: .8rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; overflow-wrap: anywhere; }
+
+/* ---------- Public signing page ---------- */
+.sign { min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sign-head { width: min(720px, 100%); }
+.sign-card { width: min(720px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); }
+.sign-card h1 { font-size: 1.6rem; }
+.sign-doc { max-height: 46vh; overflow-y: auto; padding: 18px 20px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); }
+.sign-doc .prose { max-width: none; }
+.sign-fields { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+.sign-fields:disabled { opacity: .45; }
+.check { display: flex; align-items: flex-start; gap: 10px; font-weight: 500; color: var(--ink); cursor: pointer; line-height: 1.45; }
+.check input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+.check.consent { padding: 12px 14px; background: var(--accent-soft); border-radius: var(--radius-sm); font-size: .92rem; }
+.sign-submit { justify-content: center; padding: 12px; font-size: 1rem; }
+.notice { align-items: center; text-align: center; }
+.notice-icon { width: 60px; height: 60px; border-radius: 50%; background: var(--warn-bg); color: var(--warn-fg); display: grid; place-items: center; }
+.notice.good .notice-icon { background: var(--good-bg); color: var(--good-fg); }
+
+.sigpad { position: relative; height: 160px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm); }
+.sigpad canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; border-radius: var(--radius-sm); }
+.sigpad-hint { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; font-family: var(--font-display); font-size: 1.1rem; }
+.sigpad-line { position: absolute; left: 24px; right: 24px; bottom: 36px; border-top: 1px dashed var(--line-2); pointer-events: none; }
+.sigpad-clear { position: absolute; right: 10px; bottom: 8px; font-size: .82rem; }
+.sigpad-clear:disabled { opacity: .4; cursor: default; text-decoration: none; }

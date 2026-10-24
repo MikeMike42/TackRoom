@@ -31,6 +31,8 @@ export type Field = {
   ref?: ModuleKey
   /** Show only when another field has one of these values. */
   showWhen?: { field: string; in: string[] }
+  /** Read-only in the form (filled by the system). */
+  readOnly?: boolean
   placeholder?: string
   help?: string
   /** Column in the list table. */
@@ -40,6 +42,7 @@ export type Field = {
 }
 
 export type ModuleKey =
+  | 'waiver_templates'
   | 'clients'
   | 'horses'
   | 'offerings'
@@ -68,7 +71,17 @@ export type Module = {
   fields: Field[]
   /** Variant presentation of the list. */
   view: 'table' | 'cards'
+  /** Hide from the main nav (reached from another module). */
+  hidden?: boolean
 }
+
+const WAIVER_TYPES: Option[] = [
+  { value: 'liability', label: 'Liability' },
+  { value: 'photo_release', label: 'Photo release' },
+  { value: 'medical', label: 'Medical' },
+  { value: 'minor_consent', label: 'Minor consent' },
+  { value: 'other', label: 'Other' },
+]
 
 const LEVELS: Option[] = [
   { value: 'beginner', label: 'Beginner' },
@@ -102,21 +115,36 @@ export const MODULES: Module[] = [
     fields: [
       { key: 'title', label: 'Title', type: 'text', required: true, list: true, placeholder: 'e.g. Liability waiver — Avery Cole' },
       { key: 'client_id', label: 'Rider', type: 'ref', ref: 'clients', list: true },
-      {
-        key: 'waiver_type', label: 'Type', type: 'select', required: true, list: true,
-        options: [
-          { value: 'liability', label: 'Liability' },
-          { value: 'photo_release', label: 'Photo release' },
-          { value: 'medical', label: 'Medical' },
-          { value: 'minor_consent', label: 'Minor consent' },
-          { value: 'other', label: 'Other' },
-        ],
-      },
+      { key: 'template_id', label: 'Template', type: 'ref', ref: 'waiver_templates', help: 'The text the rider will sign. Manage templates from the Waivers page.' },
+      { key: 'waiver_type', label: 'Type', type: 'select', required: true, list: true, options: WAIVER_TYPES },
       { key: 'status', label: 'Status', type: 'select', required: true, list: true, options: DOC_STATUS },
+      { key: 'signer_email', label: 'Signer email', type: 'text', placeholder: 'Filled in when you send for signature' },
       { key: 'signed_on', label: 'Signed on', type: 'date', list: true },
       { key: 'expires_on', label: 'Expires on', type: 'date', list: true, help: 'Leave blank if it never expires.' },
-      { key: 'file_path', label: 'Signed PDF', type: 'file', wide: true },
+      { key: 'file_path', label: 'Signed PDF (paper copy)', type: 'file', wide: true, help: 'For waivers signed on paper or elsewhere. E-signed waivers generate their own PDF.' },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
+    ],
+  },
+  {
+    key: 'waiver_templates',
+    table: 'waiver_templates',
+    label: 'Waiver templates',
+    singular: 'Template',
+    blurb: 'The text riders agree to. Write it once per waiver type; every waiver sent for signature uses a snapshot of the template at that moment.',
+    icon: 'shield',
+    titleKey: 'name',
+    statusKey: 'waiver_type',
+    filters: ['waiver_type'],
+    orderBy: { column: 'name', ascending: true },
+    view: 'cards',
+    hidden: true,
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true, list: true, placeholder: 'e.g. Standard liability release 2026' },
+      { key: 'waiver_type', label: 'Type', type: 'select', required: true, list: true, options: WAIVER_TYPES.map((o, i) => ({ ...o, tone: (['good', 'info', 'warn', 'bad', 'neutral'] as Tone[])[i] })) },
+      { key: 'valid_days', label: 'Valid for (days)', type: 'number', help: 'Sets the expiry date automatically when signed. Blank = never expires.' },
+      { key: 'requires_guardian_for_minors', label: 'Guardian must sign for riders under 18', type: 'boolean' },
+      { key: 'active', label: 'In use', type: 'boolean' },
+      { key: 'body', label: 'Waiver text', type: 'markdown', required: true, wide: true, help: 'Markdown. Headings, bold and numbered lists all render on the signing page and in the PDF.' },
     ],
   },
   {
